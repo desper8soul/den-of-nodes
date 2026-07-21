@@ -1,0 +1,17 @@
+{
+  "name": "home-dashboard",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @home-dashboard/dashboard --filter @home-dashboard/network-agent dev",
+    "build": "pnpm --filter @home-dashboard/contracts build && pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm --filter @home-dashboard/contracts build && pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
