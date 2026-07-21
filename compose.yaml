@@ -1,0 +1,47 @@
+# ${GHCR_OWNER} is set by the CI deploy job (github.repository_owner).
+# For manual deploys: export GHCR_OWNER=<github-username-or-org>
+services:
+  dashboard:
+    image: ghcr.io/${GHCR_OWNER}/den-of-nodes-dashboard:latest
+    container_name: don-dashboard
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env.dashboard
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    depends_on:
+      network-agent:
+        condition: service_healthy
+
+  network-agent:
+    image: ghcr.io/${GHCR_OWNER}/den-of-nodes-network-agent:latest
+    container_name: don-network-agent
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env.agent
+    environment:
+      NODE_ENV: production
+      AGENT_PORT: 3100
+    volumes:
+      - dashboard-data:/data
+    cap_add:
+      - NET_RAW
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/internal/health',{headers:{authorization:'Bearer '+process.env.INTERNAL_AGENT_SECRET}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  dashboard-data:

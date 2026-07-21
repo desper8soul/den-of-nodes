@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+coverage
+.git
+.github
+*.md
+!README.md
+.env*
+!.env*.example
+tests
+**/*.test.ts
+**/*.spec.ts
+vitest.config.ts
