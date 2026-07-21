@@ -1,6 +1,8 @@
+# ${GHCR_OWNER} is set by the CI deploy job (github.repository_owner).
+# For manual deploys: export GHCR_OWNER=<github-username-or-org>
 services:
   dashboard:
-    image: ghcr.io/OWNER/REPOSITORY-dashboard:latest
+    image: ghcr.io/${GHCR_OWNER}/den-of-nodes-dashboard:latest
     container_name: don-dashboard
     restart: unless-stopped
     network_mode: host
@@ -15,7 +17,7 @@ services:
         condition: service_healthy
 
   network-agent:
-    image: ghcr.io/OWNER/REPOSITORY-network-agent:latest
+    image: ghcr.io/${GHCR_OWNER}/den-of-nodes-network-agent:latest
     container_name: don-network-agent
     restart: unless-stopped
     network_mode: host

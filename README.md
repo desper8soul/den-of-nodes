@@ -60,7 +60,6 @@ packages/
 ### Other
 
 - Disable Fast Startup for testing if the PC does not wake from a powered-off state
-- Example MAC address: `B0:6E:BF:BB:5A:79`
 
 ## Local development
 
@@ -96,17 +95,11 @@ Network features work fully on Linux; on Windows/WSL the agent starts without ac
 ## GitHub repository and GHCR
 
 1. Create the repository and push the code
-2. The GitHub Actions workflow builds and publishes images:
+2. The GitHub Actions workflow builds and publishes public images:
   - `ghcr.io/<owner>/den-of-nodes-dashboard`
   - `ghcr.io/<owner>/den-of-nodes-network-agent`
-3. For private packages, log in on the Pi:
 
-```bash
-echo "$GHCR_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
-```
-
-Minimum token scope: `read:packages`
-
+No `docker login` is required on the Pi to pull these images.
 ## Raspberry Pi deployment
 
 ```bash
@@ -114,11 +107,18 @@ mkdir -p ~/den-of-nodes
 cd ~/den-of-nodes
 ```
 
-Create these files:
+Create these files (clone the repo, or copy them from it):
 
-- `compose.yaml` (copy from the repo and replace image names)
+- `compose.yaml`
 - `.env.dashboard` (based on `.env.dashboard.example`)
 - `.env.agent` (based on `.env.agent.example`)
+
+`compose.yaml` uses `${GHCR_OWNER}` in image names. The deploy job sets this automatically from `github.repository_owner` — no Pi-side `.env` needed for automated deploys. For a one-off manual pull on the Pi:
+
+```bash
+export GHCR_OWNER=desper8soul   # your GitHub username/org
+docker compose pull && docker compose up -d
+```
 
 ### Environment secrets
 
@@ -134,6 +134,7 @@ openssl rand -hex 32
 cp .env.dashboard.example .env.dashboard
 cp .env.agent.example .env.agent
 ```
+
 
 **For local development**, use `apps/dashboard/.env.local` and `apps/network-agent/.env.local` instead (see [Local development](#local-development)).
 
@@ -240,7 +241,7 @@ GitHub-hosted runners cannot reach a home Pi on your LAN directly. Use [Tailscal
 ```
 
 3. Create an [OAuth client](https://login.tailscale.com/admin/settings/trust-credentials) with scopes **Devices Write** and **Auth Keys Write**, tagged with `tag:ci`.
-4. On the Pi: enable SSH, install Tailscale, clone the repo to `~/den-of-nodes`, configure env files, and run `docker login ghcr.io` once.
+4. On the Pi: enable SSH, install Tailscale, clone the repo to `~/den-of-nodes`, and configure env files.
 5. Create a deploy SSH key pair; add the public key to `~/.ssh/authorized_keys` on the Pi.
 
 **GitHub repository secrets** (Settings → Secrets and variables → Actions):
@@ -309,7 +310,6 @@ docker compose up -d
 | WoL does not work over Tailscale | WoL is LAN broadcast only; the Pi must be on the same physical network |
 | `arp-scan: permission denied`    | Missing `NET_RAW` capability                                           |
 | Agent not reachable              | Check that it is running on `127.0.0.1:3100` in host network mode      |
-| GHCR pull denied                 | Missing login or package permission                                    |
 | Architecture mismatch            | ARM64 image required for Pi 3 B+                                       |
 | High memory usage                | Pi 3 B+ has 1 GB RAM — do not run parallel scans                       |
 

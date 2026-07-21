@@ -1,6 +1,7 @@
 {
   "name": "home-dashboard",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "pnpm --parallel --filter @home-dashboard/dashboard --filter @home-dashboard/network-agent dev",
