@@ -182,18 +182,53 @@ jobs:
           exit 1
 
       - name: Deploy on Pi
-        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
-        with:
-          host: ${{ secrets.PI_HOST }}
-          username: ${{ secrets.PI_USER }}
-          key: ${{ secrets.PI_SSH_PRIVATE_KEY }}
-          port: 22
-          protocol: tcp
-          timeout: 30s
-          command_timeout: 10m
-          script: |
-            set -euo pipefail
-            cd ~/den-of-nodes
-            export GHCR_OWNER='${{ github.repository_owner }}'
-            docker compose pull
-            docker compose up -d
+        env:
+          PI_HOST: ${{ secrets.PI_HOST }}
+          PI_USER: ${{ secrets.PI_USER }}
+          PI_SSH_PRIVATE_KEY: ${{ secrets.PI_SSH_PRIVATE_KEY }}
+          GHCR_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          # Prefer the Tailscale IPv4 from status — avoids MagicDNS / IPv6 quirks
+          # that sometimes break third-party SSH clients over the tailnet.
+          PI_IP="$(tailscale status --json | python3 -c '
+          import json, os, sys
+          host = os.environ["PI_HOST"].lower().split(".")[0]
+          status = json.load(sys.stdin)
+          peers = list(status.get("Peer", {}).values())
+          self = status.get("Self")
+          if self:
+              peers.append(self)
+          for peer in peers:
+              names = [
+                  (peer.get("HostName") or "").lower(),
+                  (peer.get("DNSName") or "").lower().rstrip("."),
+              ]
+              short = [n.split(".")[0] for n in names if n]
+              if host in short or host in names or any(host in n for n in names):
+                  ips = [ip for ip in peer.get("TailscaleIPs", []) if ":" not in ip]
+                  if ips:
+                      print(ips[0])
+                      sys.exit(0)
+          sys.exit("could not resolve PI_HOST to a Tailscale IPv4")
+          ')"
+          echo "Deploying via Tailscale IPv4: ${PI_IP}"
+
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          # Preserve PEM newlines from the GitHub secret
+          printf '%s\n' "$PI_SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null
+
+          ssh -vvv -4 \
+            -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o IPQoS=none \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=5 \
+            -o ServerAliveCountMax=3 \
+            "${PI_USER}@${PI_IP}" \
+            "set -euo pipefail; cd ~/den-of-nodes; export GHCR_OWNER='${GHCR_OWNER}'; docker compose pull; docker compose up -d"
