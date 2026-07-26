@@ -225,24 +225,48 @@ docker image prune -f
 
 GitHub-hosted runners cannot reach a home Pi on your LAN directly. Use [Tailscale to connect CI/CD to private infrastructure](https://tailscale.com/docs/solutions/connect-github-CICD-workflows-to-private-infrastructure-without-public-exposure) so the workflow SSHs over your tailnet after images are published.
 
+**Important:** If the Pi has **Tailscale SSH** enabled (`tailscale set --ssh`), connections to port 22 are handled by Tailscale — not plain OpenSSH. Network `grants` alone are not enough; you also need an **`ssh`** policy. A failure that looks like `handshake failed: EOF` or ends with `tailnet policy does not permit you to SSH to this node` means this section is missing or wrong.
+
 **One-time Tailscale setup**
 
 1. Tag the Pi in the [admin console](https://login.tailscale.com/admin/machines) (e.g. `tag:pi`).
-2. In [Access controls](https://login.tailscale.com/admin/acls), allow CI runners to SSH to the Pi only:
+2. In [Access controls](https://login.tailscale.com/admin/acls), allow CI both network reachability and Tailscale SSH:
 
 ```json
+"tagOwners": {
+  "tag:ci": [],
+  "tag:pi": []
+},
 "grants": [
   {
     "src": ["tag:ci"],
     "dst": ["tag:pi"],
     "ip": ["22"]
   }
+],
+"ssh": [
+  {
+    "action": "accept",
+    "src": ["tag:ci"],
+    "dst": ["tag:pi"],
+    "users": ["ede"]
+  }
 ]
 ```
 
+Replace `"ede"` with the Unix account on the Pi (`PI_USER`). Keep your existing open `grants` if you use them for personal devices; the `ssh` block is what CI needs.
+
+**Alternative:** turn off Tailscale SSH on the Pi and use classic OpenSSH + `authorized_keys` only:
+
+```bash
+sudo tailscale set --ssh=false
+```
+
+Then only the deploy key in `~/.ssh/authorized_keys` matters (no `ssh` ACL required).
+
 3. Create an [OAuth client](https://login.tailscale.com/admin/settings/trust-credentials) with scopes **Devices Write** and **Auth Keys Write**, tagged with `tag:ci`.
 4. On the Pi: enable SSH, install Tailscale, clone the repo to `~/den-of-nodes`, and configure env files.
-5. Create a deploy SSH key pair; add the public key to `~/.ssh/authorized_keys` on the Pi.
+5. If Tailscale SSH is **off**, create a deploy SSH key pair and add the public key to `~/.ssh/authorized_keys` on the Pi. If Tailscale SSH is **on**, ACL identity is what authorizes CI (`tag:ci` → local user); a deploy key is optional.
 
 **GitHub repository secrets** (Settings → Secrets and variables → Actions):
 
