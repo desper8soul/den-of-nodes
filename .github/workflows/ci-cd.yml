@@ -156,7 +156,7 @@ jobs:
             cd ~/den-of-nodes
             git fetch origin
             git checkout '${{ github.ref_name }}'
-            git pull --ff-only origin '${{ github.ref_name }}'
+            git reset --hard 'origin/${{ github.ref_name }}'
             export GHCR_OWNER='${{ github.repository_owner }}'
             export GHCR_OWNER="$(printf '%s' "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')"
             echo "Using images under ghcr.io/${GHCR_OWNER}/den-of-nodes-*:latest"
