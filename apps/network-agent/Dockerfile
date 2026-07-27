@@ -19,7 +19,8 @@ RUN pnpm --filter @home-dashboard/network-agent build
 # Keep the pnpm workspace layout so package symlinks (e.g. fastify -> .pnpm/...) resolve.
 FROM node:22-bookworm-slim AS runner
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends iproute2 arp-scan tini \
+  && apt-get install -y --no-install-recommends iproute2 arp-scan tini libcap2-bin \
+  && setcap cap_net_raw,cap_net_admin+eip /usr/sbin/arp-scan \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
@@ -31,6 +32,7 @@ COPY --from=builder --chown=app:app /app/apps/network-agent ./apps/network-agent
 COPY apps/network-agent/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 # Start as root so the entrypoint can chown the /data volume, then drop to `app`.
+# arp-scan keeps NET_RAW/NET_ADMIN via setcap above after the drop.
 WORKDIR /app/apps/network-agent
 EXPOSE 3100
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]

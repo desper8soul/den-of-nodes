@@ -280,9 +280,9 @@ Then only the deploy key in `~/.ssh/authorized_keys` matters (no `ssh` ACL requi
 
 After this, every push to `main` runs tests, publishes ARM64 images to GHCR, joins the tailnet as an ephemeral `tag:ci` node, and runs `docker compose pull && docker compose up -d` on the Pi. No port forwarding required.
 
-### NET_RAW capability
+### Network scan capabilities
 
-`arp-scan` requires raw socket access. The compose file grants the `NET_RAW` capability. **Do not** use `privileged: true`.
+`arp-scan` needs raw sockets. The compose file grants `NET_RAW` and `NET_ADMIN`, and the image uses `setcap` on `arp-scan` so it still works after the process drops from root to `app`. **Do not** use `privileged: true`.
 
 ## Tailscale access
 
@@ -332,7 +332,7 @@ docker compose up -d
 | Problem                          | Possible cause                                                         |
 | -------------------------------- | ---------------------------------------------------------------------- |
 | WoL does not work over Tailscale | WoL is LAN broadcast only; the Pi must be on the same physical network |
-| `arp-scan: permission denied`    | Missing `NET_RAW` capability                                           |
+| `arp-scan: permission denied`    | Missing `NET_RAW`/`NET_ADMIN`, or image without `setcap` on `arp-scan` |
 | Agent not reachable              | Check that it is running on `127.0.0.1:3100` in host network mode      |
 | Architecture mismatch            | ARM64 image required for Pi 3 B+                                       |
 | High memory usage                | Pi 3 B+ has 1 GB RAM — do not run parallel scans                       |

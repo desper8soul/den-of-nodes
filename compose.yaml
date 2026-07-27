@@ -30,6 +30,7 @@ services:
       - dashboard-data:/data
     cap_add:
       - NET_RAW
+      - NET_ADMIN
     healthcheck:
       test:
         [

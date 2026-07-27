@@ -13,7 +13,9 @@ export interface SessionPayload {
 
 function signPayload(payload: SessionPayload): string {
   const config = getDashboardConfig();
-  const body = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload), "utf8").toString(
+    "base64url",
+  );
   const signature = createHmac("sha256", config.sessionSecret)
     .update(body)
     .digest("base64url");
