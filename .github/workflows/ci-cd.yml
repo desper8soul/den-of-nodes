@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      # Temporary: treat cicd/* like main for first-deploy testing
+      - "cicd/**"
     tags:
       - "v*"
   workflow_dispatch:
@@ -60,7 +62,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/cicd/') }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -96,7 +98,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/cicd/') }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -113,9 +115,13 @@ jobs:
       contents: read
     environment: production
     needs: [publish-dashboard, publish-network-agent]
+    # Temporary: cicd/* runs the same deploy path as main
     if: |
       github.repository == 'desper8soul/den-of-nodes' &&
-      github.ref == 'refs/heads/main' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/heads/cicd/')
+      ) &&
       (
         github.event_name == 'push' ||
         (
@@ -142,7 +148,11 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/den-of-nodes
+            git fetch origin
+            git checkout '${{ github.ref_name }}'
+            git pull --ff-only origin '${{ github.ref_name }}'
             export GHCR_OWNER='${{ github.repository_owner }}'
+            export GHCR_OWNER="$(printf '%s' "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')"
+            echo "Using images under ghcr.io/${GHCR_OWNER}/den-of-nodes-*:latest"
             docker compose pull
             docker compose up -d
-
