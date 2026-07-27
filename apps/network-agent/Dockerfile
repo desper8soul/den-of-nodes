@@ -28,10 +28,12 @@ COPY --from=builder --chown=app:app /app/package.json /app/pnpm-workspace.yaml .
 COPY --from=builder --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/packages/contracts ./packages/contracts
 COPY --from=builder --chown=app:app /app/apps/network-agent ./apps/network-agent
-USER app
+COPY apps/network-agent/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+# Start as root so the entrypoint can chown the /data volume, then drop to `app`.
 WORKDIR /app/apps/network-agent
 EXPOSE 3100
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3100/internal/health',{headers:{authorization:'Bearer '+process.env.INTERNAL_AGENT_SECRET}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
