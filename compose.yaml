@@ -1,4 +1,4 @@
-# ${GHCR_OWNER} is set by the CI deploy job (github.repository_owner).
+# ${GHCR_OWNER} is set by the CI deploy job (github.repository_owner, lowercased).
 # For manual deploys: export GHCR_OWNER=<github-username-or-org>
 services:
   dashboard:

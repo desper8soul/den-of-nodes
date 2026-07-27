@@ -1,9 +1,14 @@
-name: Docker Publish
+name: CI/CD
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+      # Temporary: treat test/* like main for testing
+      - "test/**"
     tags:
       - "v*"
   workflow_dispatch:
@@ -37,6 +42,7 @@ jobs:
         run: pnpm build
 
   publish-dashboard:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -60,7 +66,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/test/') }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -73,6 +79,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   publish-network-agent:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -96,7 +103,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/test/') }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
@@ -113,9 +120,14 @@ jobs:
       contents: read
     environment: production
     needs: [publish-dashboard, publish-network-agent]
+    # Temporary: test/* runs the same deploy path as main
     if: |
+      github.event_name != 'pull_request' &&
       github.repository == 'desper8soul/den-of-nodes' &&
-      github.ref == 'refs/heads/main' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/heads/test/')
+      ) &&
       (
         github.event_name == 'push' ||
         (
@@ -142,7 +154,11 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/den-of-nodes
+            git fetch origin
+            git checkout '${{ github.ref_name }}'
+            git pull --ff-only origin '${{ github.ref_name }}'
             export GHCR_OWNER='${{ github.repository_owner }}'
+            export GHCR_OWNER="$(printf '%s' "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')"
+            echo "Using images under ghcr.io/${GHCR_OWNER}/den-of-nodes-*:latest"
             docker compose pull
             docker compose up -d
-
