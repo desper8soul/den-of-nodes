@@ -16,6 +16,7 @@ COPY apps/network-agent ./apps/network-agent
 RUN pnpm --filter @home-dashboard/contracts build
 RUN pnpm --filter @home-dashboard/network-agent build
 
+# Keep the pnpm workspace layout so package symlinks (e.g. fastify -> .pnpm/...) resolve.
 FROM node:22-bookworm-slim AS runner
 RUN apt-get update \
   && apt-get install -y --no-install-recommends iproute2 arp-scan tini \
@@ -23,12 +24,12 @@ RUN apt-get update \
 ENV NODE_ENV=production
 WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
-COPY --from=builder /app/apps/network-agent/dist ./dist
-COPY --from=builder /app/apps/network-agent/package.json ./package.json
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/contracts/dist ./node_modules/@home-dashboard/contracts/dist
-COPY --from=builder /app/packages/contracts/package.json ./node_modules/@home-dashboard/contracts/package.json
+COPY --from=builder --chown=app:app /app/package.json /app/pnpm-workspace.yaml ./
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/packages/contracts ./packages/contracts
+COPY --from=builder --chown=app:app /app/apps/network-agent ./apps/network-agent
 USER app
+WORKDIR /app/apps/network-agent
 EXPOSE 3100
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "dist/index.js"]
