@@ -1,6 +1,9 @@
-name: Docker Publish
+name: CI/CD
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -39,6 +42,7 @@ jobs:
         run: pnpm build
 
   publish-dashboard:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -75,6 +79,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   publish-network-agent:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -117,6 +122,7 @@ jobs:
     needs: [publish-dashboard, publish-network-agent]
     # Temporary: test/* runs the same deploy path as main
     if: |
+      github.event_name != 'pull_request' &&
       github.repository == 'desper8soul/den-of-nodes' &&
       (
         github.ref == 'refs/heads/main' ||
